@@ -83,20 +83,36 @@ func convertList(filesList []string, prefix string) (treeList []string) {
 		})
 
 		isLast := lastPathIndex == len(filesList)-1
+		var nextPrefix string
 		if isLast {
 			treeList = append(treeList, prefix+"└───"+pathPrefix)
+			nextPrefix = prefix + "\t"
 			if i < lastPathIndex {
 				treeList = append(treeList, convertList(filesList[i+1:lastPathIndex], prefix+"\t")...)
 			}
 		} else {
 			treeList = append(treeList, prefix+"├───"+pathPrefix)
+			nextPrefix = prefix + "│\t"
 			if i < lastPathIndex {
 				treeList = append(treeList, convertList(filesList[i+1:lastPathIndex], prefix+"│\t")...)
 			}
+		}
+
+		if i < lastPathIndex {
+			treeList = append(treeList, convertList(removePrefix(filesList[i+1:lastPathIndex], pathPrefix), nextPrefix)...)
 		}
 
 		i = lastPathIndex + 1
 	}
 
 	return
+}
+
+func removePrefix(filesList []string, pathPrefix string) []string {
+	result := make([]string, 0, len(filesList))
+	for _, path := range filesList {
+		result = append(result, strings.TrimPrefix(path, pathPrefix+string(os.PathSeparator)))
+	}
+
+	return result
 }
