@@ -1,0 +1,25 @@
+name: Practice Coding 01
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '01/tree/**'
+  workflow_dispatch:
+
+jobs:
+  testing:
+    name: Testing
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Prepare Repository
+        uses: actions/checkout@v6
+      - name: Prepare Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+      - name: Run Tests
+        run: |
+          go test -v
+        working-directory: '01/tree/'
