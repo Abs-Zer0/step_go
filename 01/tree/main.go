@@ -87,15 +87,9 @@ func convertList(filesList []string, prefix string) (treeList []string) {
 		if isLast {
 			treeList = append(treeList, prefix+"└───"+pathPrefix)
 			nextPrefix = prefix + "\t"
-			if i < lastPathIndex {
-				treeList = append(treeList, convertList(filesList[i+1:lastPathIndex], prefix+"\t")...)
-			}
 		} else {
 			treeList = append(treeList, prefix+"├───"+pathPrefix)
 			nextPrefix = prefix + "│\t"
-			if i < lastPathIndex {
-				treeList = append(treeList, convertList(filesList[i+1:lastPathIndex], prefix+"│\t")...)
-			}
 		}
 
 		if i < lastPathIndex {
