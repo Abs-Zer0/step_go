@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -28,8 +28,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		return err
 	}
 
-	sort.Strings(filesList)
-
 	treeList := convertList(filesList, "")
 	for _, treeLine := range treeList {
 		fmt.Fprint(out, treeLine+"\n")
@@ -40,6 +38,7 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 func getFilesList(rootPath string, printFiles bool) ([]string, error) {
 	filesList := []string{}
+	// WalkDir iterate dirs and files in lexical order
 	err := filepath.WalkDir(rootPath, func(currentPath string, d os.DirEntry, err error) error {
 		if currentPath == rootPath {
 			return nil
@@ -49,7 +48,21 @@ func getFilesList(rootPath string, printFiles bool) ([]string, error) {
 			return nil
 		}
 
-		filesList = append(filesList, strings.TrimPrefix(currentPath, rootPath+string(os.PathSeparator)))
+		var size string
+		if !d.IsDir() {
+			fileInfo, err := d.Info()
+			if err != nil {
+				return err
+			}
+			switch fileInfo.Size() {
+			case 0:
+				size = " (empty)"
+			default:
+				size = " (" + strconv.FormatInt(fileInfo.Size(), 10) + "b)"
+			}
+		}
+
+		filesList = append(filesList, strings.TrimPrefix(currentPath, rootPath+string(os.PathSeparator))+size)
 
 		return nil
 	})
@@ -60,9 +73,8 @@ func getFilesList(rootPath string, printFiles bool) ([]string, error) {
 func convertList(filesList []string, prefix string) (treeList []string) {
 	for i := 0; i < len(filesList); {
 		path := filesList[i]
-		lastEntryIndex := lastEntryIndex(filesList, path, i)
+		lastEntryIndex := lastEntryIndex(filesList, path, i+1)
 		isPathLast := lastEntryIndex == len(filesList)-1
-		fmt.Println("Path:", path, "; Last entry index:", lastEntryIndex, "; Path is last:", isPathLast)
 
 		var nextPrefix string
 		if isPathLast {
@@ -86,11 +98,9 @@ func convertList(filesList []string, prefix string) (treeList []string) {
 }
 
 func lastEntryIndex(filesList []string, root string, startIndex int) int {
-	var i int
-	for i = startIndex; i < len(filesList); i++ {
-		if !strings.HasPrefix(filesList[i], root+string(os.PathSeparator)) {
-			return i - 1
-		}
+	i := startIndex
+	for i < len(filesList) && strings.HasPrefix(filesList[i], root+string(os.PathSeparator)) {
+		i++
 	}
 
 	return i - 1
