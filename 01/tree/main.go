@@ -23,18 +23,12 @@ func main() {
 }
 
 func dirTree(out io.Writer, path string, printFiles bool) error {
-	var filesList []string
-	var err error
-	if printFiles {
-		filesList, err = getDirsListWithFiles(path)
-	} else {
-		filesList, err = getDirsList(path)
-	}
+	filesList, err := getFilesList(path, printFiles)
 	if err != nil {
 		return err
 	}
 
-	// Maybe sort
+	sort.Strings(filesList)
 
 	treeList := convertList(filesList, "")
 	for _, treeLine := range treeList {
@@ -44,69 +38,66 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 	return nil
 }
 
-func getDirsList(rootPath string) ([]string, error) {
-	dirsList := []string{}
-	err := filepath.WalkDir(rootPath, func(currentPath string, d os.DirEntry, err error) error {
-		return appendPathTrimmed(&dirsList, rootPath, currentPath)
-	})
-
-	return dirsList, err
-}
-
-func getDirsListWithFiles(rootPath string) ([]string, error) {
+func getFilesList(rootPath string, printFiles bool) ([]string, error) {
 	filesList := []string{}
-	err := filepath.Walk(rootPath, func(currentPath string, info os.FileInfo, err error) error {
-		return appendPathTrimmed(&filesList, rootPath, currentPath)
+	err := filepath.WalkDir(rootPath, func(currentPath string, d os.DirEntry, err error) error {
+		if currentPath == rootPath {
+			return nil
+		}
+
+		if !d.IsDir() && !printFiles {
+			return nil
+		}
+
+		filesList = append(filesList, strings.TrimPrefix(currentPath, rootPath+string(os.PathSeparator)))
+
+		return nil
 	})
 
 	return filesList, err
 }
 
-func appendPathTrimmed(filesList *[]string, rootPath, currentPath string) error {
-	if rootPath == currentPath {
-		return nil
-	}
-
-	*filesList = append(*filesList, strings.TrimPrefix(currentPath, rootPath+string(os.PathSeparator)))
-
-	return nil
-}
-
 func convertList(filesList []string, prefix string) (treeList []string) {
 	for i := 0; i < len(filesList); {
-		pathPrefix := filesList[i]
-		lastPathIndex, _ := sort.Find(len(filesList), func(idx int) int {
-			path := filesList[idx]
-			pathPref := strings.SplitN(path, string(os.PathSeparator), 2)[0]
+		path := filesList[i]
+		lastEntryIndex := lastEntryIndex(filesList, path, i)
+		isPathLast := lastEntryIndex == len(filesList)-1
+		fmt.Println("Path:", path, "; Last entry index:", lastEntryIndex, "; Path is last:", isPathLast)
 
-			return strings.Compare(pathPrefix, pathPref)
-		})
-
-		isLast := lastPathIndex == len(filesList)-1
 		var nextPrefix string
-		if isLast {
-			treeList = append(treeList, prefix+"└───"+pathPrefix)
+		if isPathLast {
+			treeList = append(treeList, prefix+"└───"+path)
 			nextPrefix = prefix + "\t"
 		} else {
-			treeList = append(treeList, prefix+"├───"+pathPrefix)
+			treeList = append(treeList, prefix+"├───"+path)
 			nextPrefix = prefix + "│\t"
 		}
 
-		if i < lastPathIndex {
-			treeList = append(treeList, convertList(removePrefix(filesList[i+1:lastPathIndex], pathPrefix), nextPrefix)...)
+		if i < lastEntryIndex {
+			subFilesList := filesList[i+1 : lastEntryIndex+1]
+			removePrefix(subFilesList, path)
+			treeList = append(treeList, convertList(subFilesList, nextPrefix)...)
 		}
 
-		i = lastPathIndex + 1
+		i = lastEntryIndex + 1
 	}
 
 	return
 }
 
-func removePrefix(filesList []string, pathPrefix string) []string {
-	result := make([]string, 0, len(filesList))
-	for _, path := range filesList {
-		result = append(result, strings.TrimPrefix(path, pathPrefix+string(os.PathSeparator)))
+func lastEntryIndex(filesList []string, root string, startIndex int) int {
+	var i int
+	for i = startIndex; i < len(filesList); i++ {
+		if !strings.HasPrefix(filesList[i], root+string(os.PathSeparator)) {
+			return i - 1
+		}
 	}
 
-	return result
+	return i - 1
+}
+
+func removePrefix(filesList []string, removePrefix string) {
+	for i := range filesList {
+		filesList[i] = strings.TrimPrefix(filesList[i], removePrefix+string(os.PathSeparator))
+	}
 }
